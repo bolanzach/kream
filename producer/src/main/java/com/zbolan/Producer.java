@@ -5,14 +5,12 @@ import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.TopicCollection;
 import org.apache.kafka.common.serialization.StringSerializer;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
-import java.util.concurrent.Future;
 
 public class Producer {
 
@@ -32,22 +30,25 @@ public class Producer {
         props.put(ProducerConfig.BUFFER_MEMORY_CONFIG, 33554432);
 
         adminClient = AdminClient.create(props);
-
-        initTopics(topics);
-
         kafkaProducer = new KafkaProducer<>(props);
+        initTopics(topics);
     }
 
     void initTopics(String ... topics) {
         List<String> topicList = new ArrayList<>(topics.length);
-        for (String topic : topics) {
+        var existingTopics = adminClient.listTopics();
+
+        for (var topic : topics) {
             NewTopic newTopic = new NewTopic(topic, 1, (short) 1);
             try {
-                adminClient.createTopics(List.of(newTopic)).all().get();
+                if (!existingTopics.names().get().contains(topic)) {
+                    adminClient.createTopics(List.of(newTopic)).all().get();
+                }
+
                 topicList.add(topic);
-                System.out.println("Created topic: " + topic);
+                System.out.println("Registered to topic: " + topic);
             } catch (Exception e) {
-                System.err.println("Failed to create topic " + topic + ": " + e.getMessage());
+                System.err.println("Failed to initialize topic " + topic + ": " + e.getMessage());
             }
         }
         registeredTopics = TopicCollection.ofTopicNames(topicList);
@@ -55,7 +56,7 @@ public class Producer {
 
     public void emitTestMessages() {
         try {
-            for (String topicName : registeredTopics.topicNames()) {
+            for (var topicName : registeredTopics.topicNames()) {
                 String key = "key-" + topicName;
                 String value = "Hello Kafka! Message for topic " + topicName;
 
@@ -72,16 +73,14 @@ public class Producer {
                 });
 
                 try {
-                    Thread.sleep(1000); // Wait 1 second between messages
+                    Thread.sleep(5 * 1000); // Wait 5 seconds between messages
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
             }
         } catch (Exception e) {
             Thread.currentThread().interrupt();
-        } finally {
             kafkaProducer.close();
-            System.out.println("Producer closed successfully");
         }
     }
 

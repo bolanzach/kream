@@ -17,7 +17,9 @@ public class Main
     static void setup() {
         var topics = KAFKA_TOPICS.split(",");
         var producer = new Producer(BOOTSTRAP_SERVERS, topics);
-        producer.emitTestMessages();
 
+        while (true) {
+            producer.emitTestMessages();
+        }
     }
 }
