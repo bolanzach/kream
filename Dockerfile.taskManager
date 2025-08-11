@@ -1,0 +1,6 @@
+FROM flink:1.18-java11 as taskmanager
+
+# Use official Flink entrypoint
+ENTRYPOINT ["/docker-entrypoint.sh"]
+
+CMD ["taskmanager"]

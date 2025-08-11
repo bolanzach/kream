@@ -1,0 +1,12 @@
+FROM flink:1.18-java11 as jobmanager
+
+## Add custom configuration if needed
+#COPY flink-conf.yaml /opt/flink/conf/flink-conf.yaml
+
+# Expose ports
+EXPOSE 8082 6123
+
+# Use official Flink entrypoint
+ENTRYPOINT ["/docker-entrypoint.sh"]
+
+CMD ["jobmanager"]

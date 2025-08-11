@@ -44,6 +44,68 @@ services:
       retries: 5
       start_period: 6s
 
+  jobmanager:
+    build:
+      context: .
+      dockerfile: Dockerfile.jobManager
+    ports:
+      - "8082:8082"
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: jobmanager
+        jobmanager.memory.process.size: 1600m
+        taskmanager.memory.process.size: 1728m
+        taskmanager.numberOfTaskSlots: 2
+        parallelism.default: 2
+        state.backend: filesystem
+        state.checkpoints.dir: file:///tmp/flink-checkpoints
+        state.savepoints.dir: file:///tmp/flink-savepoints
+    volumes:
+      - flink-checkpoints:/tmp/flink-checkpoints
+      - flink-savepoints:/tmp/flink-savepoints
+    networks:
+      - kafka-network
+
+  taskmanager:
+    build:
+      context: .
+      dockerfile: Dockerfile.taskManager
+    depends_on:
+      - jobmanager
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: jobmanager
+        taskmanager.memory.process.size: 1728m
+        taskmanager.numberOfTaskSlots: 2
+    volumes:
+      - flink-checkpoints:/tmp/flink-checkpoints
+      - flink-savepoints:/tmp/flink-savepoints
+    networks:
+      - kafka-network
+#    deploy:
+#      replicas: 2
+
+  flink-app:
+    build:
+      context: ./flink-app
+      dockerfile: Dockerfile
+    container_name: zach-flink-app
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_TOPICS: 'topic_1,topic_2,topic_3'
+      CONSUMER_GROUP_ID: 'group_a'
+    depends_on:
+      kafka:
+        condition: service_healthy
+      taskmanager:
+        condition: service_started
+      jobmanager:
+        condition: service_started
+    networks:
+      - kafka-network
+
   producer:
     build:
       context: ./producer
@@ -75,6 +137,8 @@ services:
 
 volumes:
   kafka-data:
+  flink-checkpoints:
+  flink-savepoints:
 
 networks:
   kafka-network:
